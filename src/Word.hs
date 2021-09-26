@@ -1,4 +1,6 @@
 module Word where
 
-word :: Integer -> Integer
-word n = n + 3
+import Data.Monoid ((<>))
+
+word :: String -> String
+word w = "Hello " <> w <> " !"

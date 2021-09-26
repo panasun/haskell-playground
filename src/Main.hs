@@ -1,44 +1,58 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Main where
 
-import Data.Aeson (FromJSON, ToJSON, encode)
-import Data.Monoid (mconcat, (<>))
-import GHC.Generics
-import Network.HTTP.Types
-import Web.Scotty
-import Prelude
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Data.ByteString.Lazy.Char8 (ByteString)
+import Data.Morpheus (interpreter)
+import Data.Morpheus.Types (GQLType, IORes, ResolveQ, ResolverQ (..), RootResolver (..), Undefined (..), liftEither)
+import Data.Text (Text)
+import GHC.Generics (Generic)
+import Web.Scotty (body, post, raw, scotty)
 
-data User = User {userId :: Int, userName :: String} deriving (Show, Generic)
+data Query m = Query
+  { deity :: DeityArgs -> m Deity
+  }
+  deriving (Generic, GQLType)
 
-instance ToJSON User
+data Deity = Deity
+  { fullName :: Text, -- Non-Nullable Field
+    power :: Maybe Text -- Nullable Field
+  }
+  deriving (Generic, GQLType)
 
-instance FromJSON User
+data DeityArgs = DeityArgs
+  { name :: Text, -- Required Argument
+    mythology :: Maybe Text -- Optional Argument
+  }
+  deriving (Generic, GQLType)
 
-bob :: User
-bob = User {userId = 1, userName = "bob"}
+resolveDeity :: DeityArgs -> ResolverQ () IO Deity
+resolveDeity DeityArgs {name, mythology} = liftEither $ askDB name mythology
 
-jenny :: User
-jenny = User {userId = 2, userName = "jenny"}
+askDB :: Text -> Maybe Text -> IO (Either String Deity)
+askDB name _ = pure $ Right (Deity {fullName = name, power = Just "foobar"})
 
-allUsers :: [User]
-allUsers = [bob, jenny]
+rootResolver :: RootResolver IO () Query Undefined Undefined
+rootResolver =
+  RootResolver
+    { queryResolver = Query {deity = resolveDeity},
+      mutationResolver = Undefined,
+      subscriptionResolver = Undefined
+    }
 
-matchesId :: Int -> User -> Bool
-matchesId id user = userId user == id
-
-routes :: ScottyM ()
-routes = do
-  get "/hello/:name" $ do
-    name <- param "name"
-    text ("hello " <> name <> "!")
-  get "/users" $ do
-    json allUsers
-  get "/users/:id" $ do
-    id <- param "id"
-    json (filter (matchesId id) allUsers)
+gqlApi :: ByteString -> IO ByteString
+gqlApi = interpreter rootResolver
 
 main :: IO ()
-main = do
-  scotty 3000 routes
+main = scotty 3000 $ post "/api" $ raw =<< (liftIO . gqlApi =<< body)

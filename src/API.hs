@@ -17,7 +17,6 @@ import Data.Morpheus (interpreter)
 import Data.Morpheus.Document (importGQLDocument)
 import Data.Morpheus.Types (RootResolver (..), Undefined (..))
 import Data.Text (Text)
-import Main (Deity)
 
 importGQLDocument "schema.gql"
 
@@ -39,22 +38,22 @@ rootResolver =
 api :: ByteString -> IO ByteString
 api = interpreter rootResolver
 
-newtype Query m = Query
-  { deity :: DeityArgs -> m Deity
-  }
-  deriving (Generic, GQLType)
+-- newtype Query m = Query
+--   { deity :: DeityArgs -> m Deity
+--   }
+--   deriving (Generic, GQLType)
 
-data Deity = Deity
-  { fullName :: Text,
-    power :: Maybe Text
-  }
-  deriving (Generic, GQLType)
+-- data Deity = Deity
+--   { fullName :: Text,
+--     power :: Maybe Text
+--   }
+--   deriving (Generic, GQLType)
 
-data DeityArgs = DeityArgs
-  { name :: Text,
-    mythology :: Maybe Text
-  }
-  deriving (Generic)
+-- data DeityArgs = DeityArgs
+--   { name :: Text,
+--     mythology :: Maybe Text
+--   }
+--   deriving (Generic)
 
-resolveDeity :: DeityArgs -> ResolverQ e () Deity
-resolveDeity DeityArgs {name, mythology} = liftEither $ dbDeity name mythology mythology
+-- resolveDeity :: DeityArgs -> ResolverQ e () Deity
+-- resolveDeity DeityArgs {name, mythology} = liftEither $ dbDeity name mythology mythology
