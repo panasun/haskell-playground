@@ -15,18 +15,17 @@ build-type:          Simple
 extra-source-files:  CHANGELOG.md
 cabal-version:       >=1.10
 
-library
-  -- exposed-modules:
-  -- other-modules:
-  -- other-extensions:
-  build-depends:       base >=4.12 && <4.13
-  hs-source-dirs:      src
-  default-language:    Haskell2010
-
 executable haskell-playground
   main-is:             Main.hs
   -- other-modules:
   -- other-extensions:
-  build-depends:       base >=4.12 && <4.13
+  build-depends:              
+    base >=4.12 && <4.13,
+    morpheus-graphql >= 0.17.0,
+    scotty,
+    http-types,
+    aeson,
+    text,
+    mtl
   hs-source-dirs:      src
   default-language:    Haskell2010

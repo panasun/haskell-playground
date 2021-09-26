@@ -1,0 +1,8 @@
+type Deity {
+  name: String!
+  power: String @deprecated(reason: "no more supported")
+}
+
+type Query {
+  deity(name: String! = "Morpheus"): Deity!
+}
