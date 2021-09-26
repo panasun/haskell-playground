@@ -1,58 +1,48 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Main where
+import Control.Monad.IO.Class (liftIO)
+import Database.Persist
+import Database.Persist.Sqlite
+import Database.Persist.TH
 
-import Control.Monad.IO.Class (MonadIO (liftIO))
-import Data.ByteString.Lazy.Char8 (ByteString)
-import Data.Morpheus (interpreter)
-import Data.Morpheus.Types (GQLType, IORes, ResolveQ, ResolverQ (..), RootResolver (..), Undefined (..), liftEither)
-import Data.Text (Text)
-import GHC.Generics (Generic)
-import Web.Scotty (body, post, raw, scotty)
-
-data Query m = Query
-  { deity :: DeityArgs -> m Deity
-  }
-  deriving (Generic, GQLType)
-
-data Deity = Deity
-  { fullName :: Text, -- Non-Nullable Field
-    power :: Maybe Text -- Nullable Field
-  }
-  deriving (Generic, GQLType)
-
-data DeityArgs = DeityArgs
-  { name :: Text, -- Required Argument
-    mythology :: Maybe Text -- Optional Argument
-  }
-  deriving (Generic, GQLType)
-
-resolveDeity :: DeityArgs -> ResolverQ () IO Deity
-resolveDeity DeityArgs {name, mythology} = liftEither $ askDB name mythology
-
-askDB :: Text -> Maybe Text -> IO (Either String Deity)
-askDB name _ = pure $ Right (Deity {fullName = name, power = Just "foobar"})
-
-rootResolver :: RootResolver IO () Query Undefined Undefined
-rootResolver =
-  RootResolver
-    { queryResolver = Query {deity = resolveDeity},
-      mutationResolver = Undefined,
-      subscriptionResolver = Undefined
-    }
-
-gqlApi :: ByteString -> IO ByteString
-gqlApi = interpreter rootResolver
+share
+  [mkPersist sqlSettings, mkMigrate "migrateAll"]
+  [persistLowerCase|
+Person
+  name String
+  age Int Maybe
+  deriving Show
+BlogPost
+  title String
+  authorId PersonId
+  deriving Show
+|]
 
 main :: IO ()
-main = scotty 3000 $ post "/api" $ raw =<< (liftIO . gqlApi =<< body)
+main = runSqlite ":memory:" $ do
+  runMigration migrateAll
+
+  johnId <- insert $ Person "John Doe" $ Just 35
+  janeId <- insert $ Person "Jane Doe" Nothing
+
+  insert $ BlogPost "My first post" johnId
+  insert $ BlogPost "One more for good measure" johnId
+
+  oneJohnPost <- selectList [BlogPostAuthorId ==. johnId] [LimitTo 1]
+  liftIO $ print (oneJohnPost :: [Entity BlogPost])
+
+  john <- get johnId
+  liftIO $ print (john :: Maybe Person)
